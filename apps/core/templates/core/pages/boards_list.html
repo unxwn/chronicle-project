@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Your Boards{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="text-white mb-0">Your Boards</h1>
+            <p class="text">Manage and organize your note collections</p>
+        </div>
+    </div>
+
+    <!-- Create New Board Card -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="create-board-card p-4">
+                <h5 class="text-white mb-3">
+                    <i class="fas fa-plus-circle me-2"></i>Create New Board
+                </h5>
+                <form method="post" class="row g-3">
+                    {% csrf_token %}
+                    <div class="col-md-5">
+                        <div class="form-floating">
+                            {{ form.name }}
+                            <label for="{{ form.name.id_for_label }}">Board Name</label>
+                        </div>
+                        {% if form.name.errors %}
+                            <div class="text-danger small mt-1">{{ form.name.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-floating">
+                            {{ form.description }}
+                            <label for="{{ form.description.id_for_label }}">Description (optional)</label>
+                        </div>
+                        {% if form.description.errors %}
+                            <div class="text-danger small mt-1">{{ form.description.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-1">
+                        <div class="color-input-wrapper">
+                            {{ form.color }}
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100 h-100">
+                            <i class="fas fa-plus me-2"></i>Create Board
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Boards Grid -->
+    <div class="row">
+        {% for board in boards %}
+            <div class="col-lg-4 col-md-6 mb-4">
+                <a href="{% url 'core:board_detail' board.id %}" class="text-decoration-none">
+                    <div class="board-card h-100" style="background-color: {{ board.color }}; color: {{ board.text_color }};">
+
+                        <div class="board-stats">
+                            <span class="stat-badge">
+                                <i class="fas fa-users fa-xs"></i>
+                                {{ board.board_memberships.count|default:0 }}
+                            </span>
+                            <span class="stat-badge">
+                                <i class="fas fa-sticky-note fa-xs"></i>
+                                {{ board.notes.count|default:0 }}
+                            </span>
+                        </div>
+
+                        <div class="board-content d-flex flex-column h-100">
+                            <h5 class="board-title" style="color: {{ board.text_color }};">{{ board.name }}</h5>
+
+                            {% if board.description %}
+                                <div class="board-preview">
+                                    <p class="small mb-0" style="color: {{ board.text_color }}; opacity: 0.8;">{{ board.description }}</p>
+                                </div>
+                            {% else %}
+                                <div class="board-preview">
+                                    <p class="small mb-0 fst-italic" style="color: {{ board.text_color }}; opacity: 0.6;">No description provided</p>
+                                </div>
+                            {% endif %}
+
+                            <div class="board-footer mt-auto">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="small" style="color: {{ board.text_color }}; opacity: 0.7;">
+                                        <i class="fas fa-crown fa-xs me-1"></i>{{ board.owner.username }}
+                                    </span>
+                                    <span class="small" style="color: {{ board.text_color }}; opacity: 0.7;">
+                                        <i class="fas fa-clock fa-xs me-1"></i>
+                                        {% if board.updated_at %}
+                                            {{ board.updated_at|timesince }} ago
+                                        {% else %}
+                                            {{ board.created_at|timesince }} ago
+                                        {% endif %}
+                                    </span>
+                                </div>
+
+                                {% if board.board_memberships.exists %}
+                                    <div class="mt-2">
+                                        <small style="color: {{ board.text_color }}; opacity: 0.7;">Members: </small>
+                                        {% for membership in board.board_memberships.all|slice:":3" %}
+                                            <span class="badge me-1" style="background-color: rgba(0,0,0,0.3); color: {{ board.text_color }};">{{ membership.user.username }}</span>
+                                        {% endfor %}
+                                        {% if board.board_memberships.count > 3 %}
+                                            <span class="badge" style="background-color: rgba(0,0,0,0.3); color: {{ board.text_color }};">+{{ board.board_memberships.count|add:"-3" }} more</span>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        {% empty %}
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="fas fa-clipboard"></i>
+                    <h3 class="text-muted">No boards yet</h3>
+                    <p class="text-muted">Create your first board above to get started organizing your notes.</p>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add some interactive feedback
+    const createButton = document.querySelector('.btn-create');
+    const form = document.querySelector('form');
+
+    if (form) {
+        form.addEventListener('submit', function() {
+            createButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Creating...';
+            createButton.disabled = true;
+        });
+    }
+
+    // Auto-focus on the name field when page loads
+    const nameField = document.querySelector('input[name="name"]');
+    if (nameField) {
+        nameField.focus();
+    }
+});
+</script>
+{% endblock %}

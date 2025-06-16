@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Note: {{ note.title }}{% endblock %}
+{% block content %}
+<h1>{{ note.title }}</h1>
+<p>Type: {{ note.get_note_type_display }}</p>
+<p>Priority: {{ note.get_priority_display }}</p>
+<p>Content: {{ note.content }}</p>
+<hr class="border-light">
+<a href="{% url 'core:note_update' board.id note.id %}" class="btn btn-primary">Edit</a>
+<form method="post" action="{% url 'core:note_delete' board.id note.id %}" class="d-inline">
+  {% csrf_token %}
+  <button type="submit" class="btn btn-danger">Delete</button>
+</form>
+<a href="{% url 'core:board_detail' board.id %}" class="btn btn-secondary">Back to Board</a>
+{% endblock %}

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Home - Chronicle{% endblock %}
+{% block content %}
+    <div class="container">
+        <h1 class="mb-4">Welcome, {{ request.user.username }}</h1>
+
+        <!-- Quick Note -->
+        <div class="card mb-4 bg-secondary text-light">
+            <div class="card-body">
+                <h5 class="card-title">Quick Note</h5>
+                <form method="post">
+                    {% csrf_token %}
+                    {{ quick_form.non_field_errors }}
+                    <div class="mb-3">
+                        {{ quick_form.title.label_tag }}
+                        {{ quick_form.title }}
+                        {% if quick_form.title.errors %}
+                            <div class="text-danger">{{ quick_form.title.errors }}</div>{% endif %}
+                    </div>
+                    <div class="mb-3">
+                        {{ quick_form.content.label_tag }}
+                        {{ quick_form.content }}
+                        {% if quick_form.content.errors %}
+                            <div class="text-danger">{{ quick_form.content.errors }}</div>{% endif %}
+                    </div>
+                    <button type="submit" name="quick_note_submit" class="btn btn-success">Add Quick Note</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Recent Boards as long rectangles -->
+        <h2 class="mb-3">Your Boards</h2>
+        <div class="row row-cols-1 row-cols-md-2 g-3 mb-4">
+            {% for board in recent_boards %}
+                <div class="col">
+                    <a href="{% url 'core:board_detail' board.id %}" class="text-decoration-none">
+                        <div class="card board-card"
+                             style="background-color: {{ board.color }}; color: {{ board.text_color }};">
+                            <div class="card-body d-flex flex-column justify-content-center">
+                                <h5 class="card-title">{{ board.name }}</h5>
+                                <p class="card-text text-truncate">{{ board.description }}</p>
+                                <small class="text-muted">Members: {{ board.board_memberships.count }}</small>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            {% empty %}
+                <p>No boards. <a href="{% url 'core:boards_list' %}">Create one</a>.</p>
+            {% endfor %}
+        </div>
+
+        <!-- Recent Notes as square cards -->
+        <h2 class="mb-3">Recent Notes</h2>
+        <div class="row row-cols-1 row-cols-md-3 g-3">
+            {% for note in recent_notes %}
+                <div class="col">
+                    <a href="{% url 'core:note_detail' note.board.id note.id %}" class="text-decoration-none">
+                        <div class="card note-card bg-dark text-light">
+                            <div class="card-body d-flex flex-column">
+                                <h5 class="card-title">{{ note.title }}</h5>
+                                <div class="note-content flex-grow-1 mb-2">
+                                    {% if note.note_type == 'checklist' %}
+                                        <ul class="list-group checklist-group">
+                                            {% for item in note.checklist_items.all %}
+                                                <li class="list-group-item bg-dark text-light d-flex justify-content-between align-items-center">
+                    <span {% if item.is_completed %}class="text-decoration-line-through"{% endif %}>
+                      {{ item.text }}
+                    </span>
+                                                </li>
+                                            {% empty %}
+                                                <p class="text-muted">No items</p>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        {{ note.content|truncatechars:100|linebreaksbr }}
+                                    {% endif %}
+                                </div>
+                                <small class="text-muted">Board: {{ note.board.name }}</small>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            {% empty %}
+                <p>No notes yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock %}

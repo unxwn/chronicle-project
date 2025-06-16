@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Board: {{ board.name }}{% endblock %}
+{% block content %}
+<div class="container">
+
+  <!-- Назва дошки -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>{{ board.name }}</h1>
+    {% if can_edit %}
+    <!-- Кнопка редагування: відкриває форму нижче -->
+    <button class="btn btn-outline-light" data-bs-toggle="collapse" data-bs-target="#editBoardForm">
+      Edit Board
+    </button>
+    {% endif %}
+  </div>
+  <p class="text-muted mb-3">{{ board.description }}</p>
+
+  <!-- Форма редагування дошки (коллапс) -->
+  {% if can_edit %}
+  <div class="collapse mb-4" id="editBoardForm">
+    <div class="card card-body bg-secondary text-light">
+      <form method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        <div class="row g-3">
+          <div class="col-md-4">
+            {{ form.name.label_tag }}
+            {{ form.name }}
+            {% if form.name.help_text %}<small class="form-text text-muted">{{ form.name.help_text }}</small>{% endif %}
+            {% if form.name.errors %}<div class="text-danger">{{ form.name.errors }}</div>{% endif %}
+          </div>
+          <div class="col-md-4">
+            {{ form.description.label_tag }}
+            {{ form.description }}
+            {% if form.description.help_text %}<small class="form-text text-muted">{{ form.description.help_text }}</small>{% endif %}
+            {% if form.description.errors %}<div class="text-danger">{{ form.description.errors }}</div>{% endif %}
+          </div>
+          <div class="col-md-2">
+            {{ form.color.label_tag }}
+            {{ form.color }}
+            {% if form.color.help_text %}<small class="form-text text-muted">{{ form.color.help_text }}</small>{% endif %}
+          </div>
+          <div class="col-md-2 align-self-end">
+            <button type="submit" name="board_edit_submit" class="btn btn-success">Save Changes</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Учасники дошки -->
+  <h3>Members</h3>
+  <ul class="list-inline mb-4">
+    {% for m in board.board_memberships.all %}
+      <li class="list-inline-item badge bg-dark text-light">
+        {{ m.user.username }}{% if m.role %} ({{ m.role }}){% endif %}
+      </li>
+    {% empty %}
+      <p class="text-muted">No members</p>
+    {% endfor %}
+  </ul>
+  {% if can_edit %}
+    <!-- Можна додати форму додавання нового учасника (email або username), але зараз пропустимо для простоти -->
+  {% endif %}
+
+  <hr class="border-light">
+
+  <!-- Швидке створення нотатки у межах дошки -->
+  <div class="card mb-4 bg-secondary text-light">
+    <div class="card-body">
+      <h5 class="card-title">Add Note to "{{ board.name }}"</h5>
+      <form method="post">
+        {% csrf_token %}
+        {{ note_form.non_field_errors }}
+        <div class="mb-3">
+          {{ note_form.title.label_tag }}
+          {{ note_form.title }}
+          {% if note_form.title.errors %}<div class="text-danger">{{ note_form.title.errors }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+          {{ note_form.content.label_tag }}
+          {{ note_form.content }}
+          {% if note_form.content.errors %}<div class="text-danger">{{ note_form.content.errors }}</div>{% endif %}
+        </div>
+        <!-- Якщо потрібні інші поля note_type, category тощо, можна додати у form -->
+        <button type="submit" name="note_create_submit" class="btn btn-success">Create Note</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Відображення нотаток у вигляді квадратних карток з прокруткою -->
+  <h3>Notes</h3>
+  <div class="row row-cols-1 row-cols-md-3 g-3">
+    {% for note in notes %}
+    <div class="col">
+      <div class="card note-card" style="background-color:#222; color:#eee;">
+        <div class="card-body d-flex flex-column">
+          <h5 class="card-title">{{ note.title }}</h5>
+          {% if note.note_type == 'checklist' %}
+            <!-- Checklist: кожен пункт з чекбоксом -->
+            <div class="note-content flex-grow-1 mb-2">
+              <ul class="list-group checklist-group">
+                {% for item in note.checklist_items.all %}
+                <li class="list-group-item bg-dark text-light d-flex justify-content-between align-items-center">
+                  <div>
+                    <input class="form-check-input me-2 checklist-checkbox" type="checkbox"
+                           data-item-id="{{ item.id }}"
+                           {% if item.is_completed %}checked{% endif %}>
+                    <span class="checklist-text {% if item.is_completed %}text-decoration-line-through{% endif %}">
+                      {{ item.text }}
+                    </span>
+                  </div>
+                </li>
+                {% empty %}
+                  <p class="text-muted">No items</p>
+                {% endfor %}
+              </ul>
+            </div>
+          {% else %}
+            <!-- Інші типи нотаток: текстова -->
+            <div class="note-content flex-grow-1 mb-2">
+              {{ note.content|linebreaksbr }}
+            </div>
+          {% endif %}
+          <div class="mt-auto d-flex justify-content-between">
+            <a href="{% url 'core:note_detail' board.id note.id %}" class="btn btn-sm btn-light">View</a>
+            <a href="{% url 'core:note_update' board.id note.id %}" class="btn btn-sm btn-secondary">Edit</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+      <p class="text-muted">No notes yet.</p>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<!-- Скрипт для обробки кліку на чекбокс у checklist-items -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const checkboxes = document.querySelectorAll('.checklist-checkbox');
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', function() {
+      const itemId = this.dataset.itemId;
+      const checked = this.checked;
+      // послати AJAX запит, щоб оновити is_completed
+      fetch("{% url 'core:toggle_checklist_item' 0 %}".replace('/0/', '/' + itemId + '/'), {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({is_completed: checked})
+      })
+      .then(response => {
+        if (!response.ok) throw 'Network response was not ok';
+        return response.json();
+      })
+      .then(data => {
+        // Успіх: змінити клас перекреслення
+        const span = this.nextElementSibling;
+        if (data.is_completed) {
+          span.classList.add('text-decoration-line-through');
+        } else {
+          span.classList.remove('text-decoration-line-through');
+        }
+      })
+      .catch(error => {
+        console.error('Error toggling:', error);
+      });
+    });
+  });
+});
+</script>
+{% endblock %}

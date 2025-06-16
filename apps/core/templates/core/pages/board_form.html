@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}
+    {% if board %}Edit Board{% else %}Create Board{% endif %}
+{% endblock %}
+{% block content %}
+    <h1>{% if board %}Edit Board{% else %}Create Board{% endif %}</h1>
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+            {% if field.field.widget.input_type == "checkbox" %}
+                <div class="form-check mb-3">
+                    {{ field }}
+                    <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {% if field.errors %}
+                        <div class="text-danger">{{ field.errors }}</div>{% endif %}
+                </div>
+            {% else %}
+                <div class="mb-3">
+                    <label for="{{ field.id_for_label }}" class="form-label text-light">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}
+                    {% if field.errors %}
+                        <div class="text-danger">{{ field.errors }}</div>{% endif %}
+                </div>
+            {% endif %}
+        {% endfor %}
+        <button type="submit" class="btn btn-success">Save</button>
+        <a href="{{ cancel_url }}" class="btn btn-secondary">Cancel</a>
+    </form>
+
+{% endblock %}
