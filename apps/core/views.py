@@ -265,6 +265,124 @@ def note_delete(request, board_id, note_id):
 
 @login_required
 @require_POST
+def board_add_member(request, board_id):
+    """Add a new member to the board"""
+    board = get_object_or_404(Board, id=board_id)
+
+    # Check if user has permission to add members
+    if not (request.user == board.owner or
+            board.board_memberships.filter(user=request.user, role__in=['owner', 'admin']).exists()):
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        username = data.get('username', '').strip()
+        role = data.get('role', 'viewer')
+
+        if not username:
+            return JsonResponse({'error': 'Username is required'}, status=400)
+
+        # Find user by username or email
+        try:
+            if '@' in username:
+                user = User.objects.get(email=username)
+            else:
+                user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return JsonResponse({'error': 'User not found'}, status=404)
+
+        # Check if user is already a member
+        if BoardMember.objects.filter(board=board, user=user).exists():
+            return JsonResponse({'error': 'User is already a member of this board'}, status=400)
+
+        # Add user to board
+        BoardMember.objects.create(board=board, user=user, role=role)
+
+        return JsonResponse({
+            'success': True,
+            'message': f'{user.username} added to board successfully'
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def board_remove_member(request, board_id, membership_id):
+    """Remove a member from the board"""
+    board = get_object_or_404(Board, id=board_id)
+    membership = get_object_or_404(BoardMember, id=membership_id, board=board)
+
+    # Check if user has permission to remove members
+    if not (request.user == board.owner or
+            board.board_memberships.filter(user=request.user, role__in=['owner', 'admin']).exists()):
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    # Prevent removing the owner
+    if membership.role == 'owner':
+        return JsonResponse({'error': 'Cannot remove board owner'}, status=400)
+
+    # Prevent removing yourself if you're the owner
+    if request.user == board.owner and membership.user == request.user:
+        return JsonResponse({'error': 'Board owner cannot remove themselves'}, status=400)
+
+    try:
+        username = membership.user.username
+        membership.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'{username} removed from board successfully'
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def board_settings(request, board_id):
+    """Board settings page with advanced options"""
+    board = get_object_or_404(Board, id=board_id)
+
+    # Check if user has permission to access settings
+    if not (request.user == board.owner or
+            board.board_memberships.filter(user=request.user, role__in=['owner', 'admin']).exists()):
+        messages.error(request, 'You do not have permission to access board settings.')
+        return redirect('core:board_detail', board.id)
+
+    if request.method == 'POST':
+        if 'transfer_ownership' in request.POST:
+            new_owner_username = request.POST.get('new_owner_username')
+            if new_owner_username and request.user == board.owner:
+                try:
+                    new_owner = User.objects.get(username=new_owner_username)
+                    if BoardMember.objects.filter(board=board, user=new_owner).exists():
+                        # Transfer ownership
+                        board.owner = new_owner
+                        board.save()
+
+                        # Update memberships
+                        BoardMember.objects.filter(board=board, user=new_owner).update(role='owner')
+                        BoardMember.objects.filter(board=board, user=request.user).update(role='admin')
+
+                        messages.success(request, f'Board ownership transferred to {new_owner.username}')
+                        return redirect('core:board_detail', board.id)
+                    else:
+                        messages.error(request, 'User must be a board member to become owner')
+                except User.DoesNotExist:
+                    messages.error(request, 'User not found')
+
+    return render(request, 'core/pages/board_settings.html', {
+        'board': board,
+        'is_owner': request.user == board.owner,
+    })
+
+
+@login_required
+@require_POST
 def toggle_checklist_item(request, item_id):
     try:
         item = ChecklistItem.objects.get(id=item_id)
@@ -283,4 +401,3 @@ def toggle_checklist_item(request, item_id):
         return JsonResponse({'is_completed': item.is_completed})
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
-

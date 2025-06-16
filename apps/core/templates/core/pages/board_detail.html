@@ -1,179 +1,446 @@
 {% extends "base.html" %}
 {% block title %}Board: {{ board.name }}{% endblock %}
+
 {% block content %}
-<div class="container">
+    <div class="container-fluid px-4">
+        <!-- Board Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="board-header p-4 rounded-3"
+                     style="background: linear-gradient(135deg, {{ board.color }}99, {{ board.color }}44); border: 2px solid {{ board.color }}33;">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h1 class="mb-2 fw-bold" style="color: {{ board.text_color }};">{{ board.name }}</h1>
+                            <p class="mb-3 opacity-75"
+                               style="color: {{ board.text_color }};">{{ board.description|default:"No description provided" }}</p>
 
-  <!-- Назва дошки -->
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1>{{ board.name }}</h1>
+                            <!-- Board Stats -->
+                            <div class="d-flex gap-3 mb-3">
+              <span class="badge bg-dark bg-opacity-75 px-3 py-2">
+                <i class="fas fa-sticky-note me-1"></i>
+                {{ notes.count }} note{{ notes.count|pluralize }}
+              </span>
+                                <span class="badge bg-dark bg-opacity-75 px-3 py-2">
+                <i class="fas fa-users me-1"></i>
+                {{ board.board_memberships.count }} member{{ board.board_memberships.count|pluralize }}
+              </span>
+                                <span class="badge bg-dark bg-opacity-75 px-3 py-2">
+                <i class="fas fa-clock me-1"></i>
+                Updated {{ board.updated_at|timesince }} ago
+              </span>
+                            </div>
+                        </div>
+
+                        {% if can_edit %}
+                            <div class="dropdown">
+                                <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button"
+                                        data-bs-toggle="dropdown">
+                                    <i class="fas fa-cog me-1"></i> Manage
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-dark">
+                                    <li><a class="dropdown-item" href="#" data-bs-toggle="modal"
+                                           data-bs-target="#editBoardModal">
+                                        <i class="fas fa-edit me-2"></i>Edit Board
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="#" data-bs-toggle="modal"
+                                           data-bs-target="#addMemberModal">
+                                        <i class="fas fa-user-plus me-2"></i>Add Member
+                                    </a></li>
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal"
+                                           data-bs-target="#deleteBoardModal">
+                                        <i class="fas fa-trash me-2"></i>Delete Board
+                                    </a></li>
+                                </ul>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Members List -->
+                    <div class="members-list">
+                        <h6 class="mb-2 fw-semibold" style="color: {{ board.text_color }};">Members:</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for membership in board.board_memberships.all %}
+                                <span class="badge bg-dark bg-opacity-50 px-3 py-2 rounded-pill">
+                <i class="fas fa-user me-1"></i>
+                {{ membership.user.username }}
+                                    {% if membership.role %}
+                                        <span class="text">• {{ membership.get_role_display }}</span>
+                                    {% endif %}
+              </span>
+                            {% empty %}
+                                <span class="text" style="color: {{ board.text_color }};">No members yet</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Add Note -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card bg-dark border-secondary">
+                    <div class="card-header bg-secondary">
+                        <h5 class="mb-0 text-light">
+                            <i class="fas fa-plus-circle me-2"></i>Add New Note
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" id="noteForm">
+                            {% csrf_token %}
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        {{ note_form.title }}
+                                        <label for="{{ note_form.title.id_for_label }}" class="text">Note
+                                            Title</label>
+                                    </div>
+                                    {% if note_form.title.errors %}
+                                        <div class="text-danger small mt-1">{{ note_form.title.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-floating">
+                                        {{ note_form.note_type }}
+                                        <label for="{{ note_form.note_type.id_for_label }}" class="text">Note
+                                            Type</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-floating">
+                                        {{ note_form.priority }}
+                                        <label for="{{ note_form.priority.id_for_label }}"
+                                               class="text">Priority</label>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-floating">
+                                        {{ note_form.content }}
+                                        <label for="{{ note_form.content.id_for_label }}" class="text">Note
+                                            Content</label>
+                                    </div>
+                                    {% if note_form.content.errors %}
+                                        <div class="text-danger small mt-1">{{ note_form.content.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-12">
+                                    <div class="d-flex gap-3 align-items-center">
+                                        <div class="form-check">
+                                            {{ note_form.is_pinned }}
+                                            <label class="form-check-label text-light"
+                                                   for="{{ note_form.is_pinned.id_for_label }}">
+                                                <i class="fas fa-thumbtack me-1"></i>Pin this note
+                                            </label>
+                                        </div>
+                                        <button type="submit" name="note_create_submit" class="btn btn-success ms-auto">
+                                            <i class="fas fa-plus me-1"></i>Create Note
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes Grid -->
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3 class="text-light mb-0">
+                        <i class="fas fa-sticky-note me-2"></i>Notes
+                        <span class="badge bg-secondary ms-2">{{ notes.count }}</span>
+                    </h3>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <input type="radio" class="btn-check" name="viewMode" id="gridView" autocomplete="off" checked>
+                        <label class="btn btn-outline-light" for="gridView">
+                            <i class="fas fa-th-large"></i>
+                            grid
+                        </label>
+                        <input type="radio" class="btn-check" name="viewMode" id="listView" autocomplete="off">
+                        <label class="btn btn-outline-light" for="listView">
+                            <i class="fas fa-list"></i>
+                            list
+                        </label>
+                    </div>
+                </div>
+
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4" id="notesGrid">
+                    {% for note in notes %}
+                        <div class="col note-item">
+                            <div class="card note-card h-100 bg-dark border-secondary position-relative">
+                                {% if note.is_pinned %}
+                                    <div class="position-absolute top-0 start-0 p-2">
+                                        <i class="fas fa-thumbtack text-warning"></i>
+                                    </div>
+                                {% endif %}
+
+                                <div class="position-absolute top-0 end-0 p-2">
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-light btn-sm-icon" type="button"
+                                                data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-dark">
+                                            <li><a class="dropdown-item"
+                                                   href="{% url 'core:note_detail' board.id note.id %}">
+                                                <i class="fas fa-eye me-2"></i>View
+                                            </a></li>
+                                            <li><a class="dropdown-item"
+                                                   href="{% url 'core:note_update' board.id note.id %}">
+                                                <i class="fas fa-edit me-2"></i>Edit
+                                            </a></li>
+                                            <li>
+                                                <hr class="dropdown-divider">
+                                            </li>
+                                            <li><a class="dropdown-item text-danger" href="#"
+                                                   onclick="deleteNote({{ note.id }}, '{{ note.title|escapejs }}')">
+                                                <i class="fas fa-trash me-2"></i>Delete
+                                            </a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <div class="card-body d-flex flex-column">
+                                    <div class="mb-2">
+                                        <h6 class="card-title text-light mb-1">{{ note.title }}</h6>
+                                        <div class="d-flex gap-2 mb-2">
+                  <span class="badge bg-{{ note.priority }} bg-opacity-75 small">
+                    {{ note.get_priority_display }}
+                  </span>
+                                            <span class="badge bg-info bg-opacity-75 small">
+                    {{ note.get_note_type_display }}
+                  </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="note-content flex-grow-1 mb-3">
+                                        {% if note.note_type == 'checklist' %}
+                                            <div class="checklist-preview">
+                                                {% for item in note.checklist_items.all|slice:":3" %}
+                                                    <div class="form-check form-check-sm mb-1">
+                                                        <input class="form-check-input checklist-checkbox"
+                                                               type="checkbox"
+                                                               data-item-id="{{ item.id }}"
+                                                               {% if item.is_completed %}checked{% endif %}>
+                                                        <label class="form-check-label text-light small {% if item.is_completed %}text-decoration-line-through opacity-50{% endif %}">
+                                                            {{ item.text|truncatechars:40 }}
+                                                        </label>
+                                                    </div>
+                                                {% empty %}
+                                                    <p class="text small mb-0">No checklist items</p>
+                                                {% endfor %}
+                                                {% if note.checklist_items.count > 3 %}
+                                                    <p class="text small mb-0">
+                                                        <i class="fas fa-ellipsis-h me-1"></i>
+                                                        {{ note.checklist_items.count|add:"-3" }} more
+                                                        item{{ note.checklist_items.count|add:"-3"|pluralize }}
+                                                    </p>
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <div class="note-text-preview">
+                                                <p class="text-light small mb-0 lh-sm">
+                                                    {{ note.content|truncatewords:25|linebreaksbr }}
+                                                </p>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="card-footer bg-transparent border-top border-secondary pt-2 mt-auto">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <small class="text">
+                                                <i class="fas fa-clock me-1"></i>
+                                                {{ note.updated_at|timesince }} ago
+                                            </small>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{% url 'core:note_detail' board.id note.id %}"
+                                                   class="btn btn-outline-light btn-sm">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="{% url 'core:note_update' board.id note.id %}"
+                                                   class="btn btn-outline-secondary btn-sm">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="col-12">
+                            <div class="text-center py-5">
+                                <div class="empty-state">
+                                    <i class="fas fa-sticky-note text mb-3"
+                                       style="font-size: 4rem; opacity: 0.3;"></i>
+                                    <h4 class="text">No notes yet</h4>
+                                    <p class="text">Create your first note using the form above.</p>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Board Modal -->
     {% if can_edit %}
-    <!-- Кнопка редагування: відкриває форму нижче -->
-    <button class="btn btn-outline-light" data-bs-toggle="collapse" data-bs-target="#editBoardForm">
-      Edit Board
-    </button>
+        <div class="modal fade" id="editBoardModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content bg-dark border-secondary">
+                    <div class="modal-header border-secondary">
+                        <h5 class="modal-title text-light">Edit Board</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="post" id="editBoardForm">
+                        {% csrf_token %}
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="{{ form.name.id_for_label }}" class="form-label text-light">Board
+                                    Name</label>
+                                {{ form.name }}
+                                {% if form.name.errors %}
+                                    <div class="text-danger small">{{ form.name.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="mb-3">
+                                <label for="{{ form.description.id_for_label }}" class="form-label text-light">Description</label>
+                                {{ form.description }}
+                                {% if form.description.errors %}
+                                    <div class="text-danger small">{{ form.description.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="mb-3">
+                                <label for="{{ form.color.id_for_label }}" class="form-label text-light">Color
+                                    Theme</label>
+                                <div class="color-input-wrapper">
+                                    {{ form.color }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-secondary">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" name="board_edit_submit" class="btn btn-success">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Board Modal -->
+        <div class="modal fade" id="deleteBoardModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content bg-dark border-secondary">
+                    <div class="modal-header border-secondary">
+                        <h5 class="modal-title text-light">Delete Board</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-light">Are you sure you want to delete the board
+                            <strong>"{{ board.name }}"</strong>?</p>
+                        <p class="text-danger small">This action cannot be undone. All notes in this board will be
+                            permanently deleted.</p>
+                    </div>
+                    <div class="modal-footer border-secondary">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <a href="{% url 'core:board_delete' board.id %}" class="btn btn-danger">Delete Board</a>
+                    </div>
+                </div>
+            </div>
+        </div>
     {% endif %}
-  </div>
-  <p class="text-muted mb-3">{{ board.description }}</p>
 
-  <!-- Форма редагування дошки (коллапс) -->
-  {% if can_edit %}
-  <div class="collapse mb-4" id="editBoardForm">
-    <div class="card card-body bg-secondary text-light">
-      <form method="post">
-        {% csrf_token %}
-        {{ form.non_field_errors }}
-        <div class="row g-3">
-          <div class="col-md-4">
-            {{ form.name.label_tag }}
-            {{ form.name }}
-            {% if form.name.help_text %}<small class="form-text text-muted">{{ form.name.help_text }}</small>{% endif %}
-            {% if form.name.errors %}<div class="text-danger">{{ form.name.errors }}</div>{% endif %}
-          </div>
-          <div class="col-md-4">
-            {{ form.description.label_tag }}
-            {{ form.description }}
-            {% if form.description.help_text %}<small class="form-text text-muted">{{ form.description.help_text }}</small>{% endif %}
-            {% if form.description.errors %}<div class="text-danger">{{ form.description.errors }}</div>{% endif %}
-          </div>
-          <div class="col-md-2">
-            {{ form.color.label_tag }}
-            {{ form.color }}
-            {% if form.color.help_text %}<small class="form-text text-muted">{{ form.color.help_text }}</small>{% endif %}
-          </div>
-          <div class="col-md-2 align-self-end">
-            <button type="submit" name="board_edit_submit" class="btn btn-success">Save Changes</button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- Учасники дошки -->
-  <h3>Members</h3>
-  <ul class="list-inline mb-4">
-    {% for m in board.board_memberships.all %}
-      <li class="list-inline-item badge bg-dark text-light">
-        {{ m.user.username }}{% if m.role %} ({{ m.role }}){% endif %}
-      </li>
-    {% empty %}
-      <p class="text-muted">No members</p>
-    {% endfor %}
-  </ul>
-  {% if can_edit %}
-    <!-- Можна додати форму додавання нового учасника (email або username), але зараз пропустимо для простоти -->
-  {% endif %}
-
-  <hr class="border-light">
-
-  <!-- Швидке створення нотатки у межах дошки -->
-  <div class="card mb-4 bg-secondary text-light">
-    <div class="card-body">
-      <h5 class="card-title">Add Note to "{{ board.name }}"</h5>
-      <form method="post">
-        {% csrf_token %}
-        {{ note_form.non_field_errors }}
-        <div class="mb-3">
-          {{ note_form.title.label_tag }}
-          {{ note_form.title }}
-          {% if note_form.title.errors %}<div class="text-danger">{{ note_form.title.errors }}</div>{% endif %}
-        </div>
-        <div class="mb-3">
-          {{ note_form.content.label_tag }}
-          {{ note_form.content }}
-          {% if note_form.content.errors %}<div class="text-danger">{{ note_form.content.errors }}</div>{% endif %}
-        </div>
-        <!-- Якщо потрібні інші поля note_type, category тощо, можна додати у form -->
-        <button type="submit" name="note_create_submit" class="btn btn-success">Create Note</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- Відображення нотаток у вигляді квадратних карток з прокруткою -->
-  <h3>Notes</h3>
-  <div class="row row-cols-1 row-cols-md-3 g-3">
-    {% for note in notes %}
-    <div class="col">
-      <div class="card note-card" style="background-color:#222; color:#eee;">
-        <div class="card-body d-flex flex-column">
-          <h5 class="card-title">{{ note.title }}</h5>
-          {% if note.note_type == 'checklist' %}
-            <!-- Checklist: кожен пункт з чекбоксом -->
-            <div class="note-content flex-grow-1 mb-2">
-              <ul class="list-group checklist-group">
-                {% for item in note.checklist_items.all %}
-                <li class="list-group-item bg-dark text-light d-flex justify-content-between align-items-center">
-                  <div>
-                    <input class="form-check-input me-2 checklist-checkbox" type="checkbox"
-                           data-item-id="{{ item.id }}"
-                           {% if item.is_completed %}checked{% endif %}>
-                    <span class="checklist-text {% if item.is_completed %}text-decoration-line-through{% endif %}">
-                      {{ item.text }}
-                    </span>
-                  </div>
-                </li>
-                {% empty %}
-                  <p class="text-muted">No items</p>
-                {% endfor %}
-              </ul>
+    <!-- Delete Note Modal -->
+    <div class="modal fade" id="deleteNoteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark border-secondary">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title text-light">Delete Note</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-light">Are you sure you want to delete the note <strong id="noteTitle"></strong>?</p>
+                    <p class="text-danger small">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form method="post" id="deleteNoteForm" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" name="note_delete_submit" class="btn btn-danger">Delete Note</button>
+                    </form>
+                </div>
             </div>
-          {% else %}
-            <!-- Інші типи нотаток: текстова -->
-            <div class="note-content flex-grow-1 mb-2">
-              {{ note.content|linebreaksbr }}
-            </div>
-          {% endif %}
-          <div class="mt-auto d-flex justify-content-between">
-            <a href="{% url 'core:note_detail' board.id note.id %}" class="btn btn-sm btn-light">View</a>
-            <a href="{% url 'core:note_update' board.id note.id %}" class="btn btn-sm btn-secondary">Edit</a>
-          </div>
         </div>
-      </div>
     </div>
-    {% empty %}
-      <p class="text-muted">No notes yet.</p>
-    {% endfor %}
-  </div>
-</div>
 
-{% endblock %}
 
-{% block scripts %}
-<!-- Скрипт для обробки кліку на чекбокс у checklist-items -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const checkboxes = document.querySelectorAll('.checklist-checkbox');
-  checkboxes.forEach(cb => {
-    cb.addEventListener('change', function() {
-      const itemId = this.dataset.itemId;
-      const checked = this.checked;
-      // послати AJAX запит, щоб оновити is_completed
-      fetch("{% url 'core:toggle_checklist_item' 0 %}".replace('/0/', '/' + itemId + '/'), {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': '{{ csrf_token }}',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({is_completed: checked})
-      })
-      .then(response => {
-        if (!response.ok) throw 'Network response was not ok';
-        return response.json();
-      })
-      .then(data => {
-        // Успіх: змінити клас перекреслення
-        const span = this.nextElementSibling;
-        if (data.is_completed) {
-          span.classList.add('text-decoration-line-through');
-        } else {
-          span.classList.remove('text-decoration-line-through');
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Checklist functionality
+            const checkboxes = document.querySelectorAll('.checklist-checkbox');
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', function () {
+                    const itemId = this.dataset.itemId;
+                    const checked = this.checked;
+
+                    fetch("{% url 'core:toggle_checklist_item' 0 %}".replace('/0/', '/' + itemId + '/'), {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({is_completed: checked})
+                    })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Network response was not ok');
+                            return response.json();
+                        })
+                        .then(data => {
+                            const label = this.nextElementSibling;
+                            if (data.is_completed) {
+                                label.classList.add('text-decoration-line-through', 'opacity-50');
+                            } else {
+                                label.classList.remove('text-decoration-line-through', 'opacity-50');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error toggling checklist item:', error);
+                            this.checked = !checked; // Revert checkbox state
+                        });
+                });
+            });
+        });
+
+        // Delete note function
+        function deleteNote(noteId, noteTitle) {
+            document.getElementById('noteTitle').textContent = noteTitle;
+            document.getElementById('deleteNoteForm').action = "{% url 'core:note_delete' board.id 0 %}".replace('/0/', '/' + noteId + '/');
+            new bootstrap.Modal(document.getElementById('deleteNoteModal')).show();
         }
-      })
-      .catch(error => {
-        console.error('Error toggling:', error);
-      });
-    });
-  });
-});
-</script>
+
+        // View mode toggle
+        document.addEventListener('DOMContentLoaded', function () {
+            const gridView = document.getElementById('gridView');
+            const listView = document.getElementById('listView');
+            const notesGrid = document.getElementById('notesGrid');
+
+            listView.addEventListener('change', function () {
+                if (this.checked) {
+                    notesGrid.className = 'row row-cols-1 g-3';
+                }
+            });
+
+            gridView.addEventListener('change', function () {
+                if (this.checked) {
+                    notesGrid.className = 'row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4';
+                }
+            });
+        });
+    </script>
 {% endblock %}
