@@ -25,6 +25,7 @@ urlpatterns = [
     path('notes/', views.notes_list, name='notes_list'),
     path('boards/<int:board_id>/notes/create/', views.note_create, name='note_create'),
     path('boards/<int:board_id>/notes/<int:note_id>/', views.note_detail, name='note_detail'),
+    path('notes/<int:note_id>/archive/', views.note_archive, name='note_archive'),
     path('boards/<int:board_id>/notes/<int:note_id>/update/', views.note_update, name='note_update'),
     path('boards/<int:board_id>/notes/<int:note_id>/delete/', views.note_delete, name='note_delete'),
 

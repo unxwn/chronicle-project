@@ -1,15 +1,356 @@
 {% extends "base.html" %}
 {% block title %}Note: {{ note.title }}{% endblock %}
+
 {% block content %}
-<h1>{{ note.title }}</h1>
-<p>Type: {{ note.get_note_type_display }}</p>
-<p>Priority: {{ note.get_priority_display }}</p>
-<p>Content: {{ note.content }}</p>
-<hr class="border-light">
-<a href="{% url 'core:note_update' board.id note.id %}" class="btn btn-primary">Edit</a>
-<form method="post" action="{% url 'core:note_delete' board.id note.id %}" class="d-inline">
-  {% csrf_token %}
-  <button type="submit" class="btn btn-danger">Delete</button>
-</form>
-<a href="{% url 'core:board_detail' board.id %}" class="btn btn-secondary">Back to Board</a>
+    <div class="container-fluid px-4 py-4">
+        <!-- Note Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="note-header p-4 rounded-3"
+                     style="background: linear-gradient(135deg, {{ note.board.color }}99, {{ note.board.color }}44); border: 2px solid {{ note.board.color }}33;">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h1 class="mb-2 fw-bold" style="color: {{ note.board.text_color }};">{{ note.title }}</h1>
+
+                            <div class="d-flex gap-3 mb-3 flex-wrap">
+                            <span class="badge bg-{{ note.priority }} bg-opacity-75 px-3 py-2">
+                                <i class="fas fa-exclamation-circle me-1"></i>
+                                {{ note.get_priority_display }}
+                            </span>
+                                <span class="badge bg-info bg-opacity-75 px-3 py-2">
+                                <i class="fas fa-sticky-note me-1"></i>
+                                {{ note.get_note_type_display }}
+                            </span>
+                                <span class="badge bg-secondary bg-opacity-75 px-3 py-2">
+                                <i class="fas fa-user me-1"></i>
+                                {{ note.author.username }}
+                            </span>
+                                {% if note.category %}
+                                    <span class="badge bg-dark bg-opacity-75 px-3 py-2"
+                                          style="background-color: {{ note.category.color }} !important;">
+                                <i class="fas fa-tag me-1"></i>
+                                {{ note.category.name }}
+                            </span>
+                                {% endif %}
+                                {% if note.is_pinned %}
+                                    <span class="badge bg-warning bg-opacity-75 px-3 py-2">
+                                <i class="fas fa-thumbtack me-1"></i>
+                                Pinned
+                            </span>
+                                {% endif %}
+                            </div>
+
+                            <div class="d-flex gap-3 opacity-75" style="color: {{ note.board.text_color }};">
+                                <small>
+                                    <i class="fas fa-clock me-1"></i>
+                                    Created {{ note.created_at|timesince }} ago
+                                </small>
+                                <small>
+                                    <i class="fas fa-sync-alt me-1"></i>
+                                    Updated {{ note.updated_at|timesince }} ago
+                                </small>
+                            </div>
+                        </div>
+
+                        {% if can_edit %}
+                            <div class="dropdown">
+                                <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button"
+                                        data-bs-toggle="dropdown">
+                                    <i class="fas fa-cog me-1"></i> Manage
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-dark">
+                                    <li><a class="dropdown-item"
+                                           href="{% url 'core:note_update' note.board.id note.id %}">
+                                        <i class="fas fa-edit me-2"></i>Edit Note
+                                    </a></li>
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li><a class="dropdown-item text-danger" href="#"
+                                           onclick="showDeleteModal('{{ note.title|escapejs }}')">
+                                        <i class="fas fa-trash me-2"></i>Delete Note
+                                    </a></li>
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
+                                        {% if note.is_archived %}
+                                            <a class="dropdown-item" href="#" id="unarchiveBtn">
+                                                <i class="fas fa-box-open me-2"></i>Unarchive
+                                            </a>
+                                        {% else %}
+                                            <a class="dropdown-item" href="#" id="archiveBtn">
+                                                <i class="fas fa-archive me-2"></i>Archive
+                                            </a>
+                                        {% endif %}
+                                    </li>
+                                </ul>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Note Content -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card bg-dark border-secondary">
+                    <div class="card-header bg-secondary">
+                        <h5 class="mb-0 text-light">
+                            <i class="fas fa-align-left me-2"></i>Content
+                        </h5>
+                    </div>
+
+                    <div class="card-body">
+                        {% if note.note_type == 'text' %}
+                            <!-- Text Note Content -->
+                            <div class="note-text-content text-light">
+                                {{ note.content|linebreaks }}
+                            </div>
+
+                        {% elif note.note_type == 'checklist' %}
+                            <!-- Checklist Content -->
+                            <div class="checklist-content text-light">
+                                <div class="progress mb-4">
+                                    {% with total=note.checklist_items.count completed=completed_checklist_items_count %}
+                                        <div class="progress-bar bg-success"
+                                             role="progressbar"
+                                             style="width:
+                                                     {% if total > 0 %}{% widthratio completed total 100 %}{% else %}0{% endif %}%">
+                                            {% if total > 0 %}
+                                                {% widthratio completed total 100 %}% Complete
+                                            {% else %}
+                                                0% Complete
+                                            {% endif %}
+                                        </div>
+                                    {% endwith %}
+                                </div>
+
+                                <ul class="list-group checklist-items">
+                                    {% for item in note.checklist_items.all %}
+                                        <li class="list-group-item bg-dark border-secondary d-flex align-items-center">
+                                            <div class="form-check flex-grow-1">
+                                                <input class="form-check-input checklist-checkbox"
+                                                       type="checkbox"
+                                                       data-item-id="{{ item.id }}"
+                                                       id="check-{{ item.id }}"
+                                                       {% if item.is_completed %}checked{% endif %}>
+                                                <label class="form-check-label text-light {% if item.is_completed %}text-decoration-line-through opacity-75{% endif %}"
+                                                       for="check-{{ item.id }}">
+                                                    {{ item.text }}
+                                                </label>
+                                            </div>
+                                            <small class="text ms-3 opacity-50">{{ item.created_at|timesince }}
+                                                ago</small>
+                                        </li>
+                                    {% empty %}
+                                        <li class="list-group-item bg-dark border-secondary text-center text-light py-4">
+                                            <i class="fas fa-clipboard-list fa-2x mb-2 opacity-50"></i>
+                                            <p class="mb-0">No checklist items yet</p>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+
+                        {% elif note.note_type == 'link' %}
+                            <!-- Link Collection -->
+                            <div class="link-collection">
+                                <div class="row row-cols-1 row-cols-md-2 g-4">
+                                    {% for link in note.links.all %}
+                                        <div class="col">
+                                            <div class="card bg-dark border-secondary h-100">
+                                                <div class="card-body">
+                                                    <div class="d-flex align-items-center mb-3">
+                                                        {% if link.favicon_url %}
+                                                            <img src="{{ link.favicon_url }}"
+                                                                 alt="Favicon"
+                                                                 class="me-3"
+                                                                 width="20"
+                                                                 height="20">
+                                                        {% endif %}
+                                                        <h5 class="card-title mb-0">{{ link.title }}</h5>
+                                                    </div>
+
+                                                    <a href="{{ link.url }}"
+                                                       target="_blank"
+                                                       class="text-break text d-block mb-2">
+                                                        {{ link.url }}
+                                                    </a>
+
+                                                    {% if link.description %}
+                                                        <p class="text-light small">{{ link.description }}</p>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="card-footer bg-transparent border-secondary">
+                                                    <small class="text">Added {{ link.created_at|timesince }}
+                                                        ago</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% empty %}
+                                        <div class="col-12">
+                                            <div class="empty-state py-5 text-center">
+                                                <i class="fas fa-link fa-4x mb-3 opacity-50"></i>
+                                                <h4 class="text">No links added</h4>
+                                                <p class="text">This collection doesn't contain any links yet.</p>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Tags Section -->
+                    {% if tags %}
+                        <div class="card-footer bg-secondary">
+                            <div class="d-flex align-items-center">
+                                <span class="me-2 text-light"><i class="fas fa-tags"></i></span>
+                                <div class="d-flex flex-wrap gap-2">
+                                    {% for tag in tags %}
+                                        <span class="badge bg-dark bg-opacity-50 px-3 py-2">
+                {{ tag.name }}
+            </span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Back to Board Button -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <a href="{% url 'core:board_detail' note.board.id %}"
+                   class="btn btn-outline-light">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Back to {{ note.board.name }} Board
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Note Modal -->
+    <div class="modal fade" id="deleteNoteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark border-secondary">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title text-light">Delete Note</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-light">Are you sure you want to delete the note <strong id="noteTitle"></strong>?</p>
+                    <p class="text-danger small">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form method="post" action="{% url 'core:note_delete' note.board.id note.id %}" id="deleteNoteForm">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">Delete Note</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Delete Note Modal Handler
+            function showDeleteModal(title) {
+                document.getElementById('noteTitle').textContent = title;
+                new bootstrap.Modal(document.getElementById('deleteNoteModal')).show();
+            }
+
+            // Archive/Unarchive functionality
+            const archiveBtn = document.getElementById('archiveBtn');
+            const unarchiveBtn = document.getElementById('unarchiveBtn');
+
+            if (archiveBtn) {
+                archiveBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    updateArchiveStatus(true);
+                });
+            }
+
+            if (unarchiveBtn) {
+                unarchiveBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    updateArchiveStatus(false);
+                });
+            }
+
+            function updateArchiveStatus(archive) {
+                fetch("{% url 'core:note_archive' note.id %}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({archive: archive})
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            window.location.reload();
+                        } else {
+                            alert('Error updating note status');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred');
+                    });
+            }
+
+            // Checklist functionality
+            const checkboxes = document.querySelectorAll('.checklist-checkbox');
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', function () {
+                    const itemId = this.dataset.itemId;
+                    const checked = this.checked;
+
+                    fetch("{% url 'core:toggle_checklist_item' 0 %}".replace('/0/', '/' + itemId + '/'), {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({is_completed: checked})
+                    })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Network response was not ok');
+                            return response.json();
+                        })
+                        .then(data => {
+                            const label = this.nextElementSibling;
+                            if (data.is_completed) {
+                                label.classList.add('text-decoration-line-through', 'opacity-75');
+                            } else {
+                                label.classList.remove('text-decoration-line-through', 'opacity-75');
+                            }
+                            // Update progress bar
+                            updateProgressBar();
+                        })
+                        .catch(error => {
+                            console.error('Error toggling checklist item:', error);
+                            this.checked = !checked; // Revert checkbox state
+                        });
+                });
+            });
+
+            function updateProgressBar() {
+                const total = document.querySelectorAll('.checklist-checkbox').length;
+                const completed = document.querySelectorAll('.checklist-checkbox:checked').length;
+                const progressBar = document.querySelector('.progress-bar');
+
+                if (progressBar) {
+                    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+                    progressBar.style.width = `${percentage}%`;
+                    progressBar.textContent = `${percentage}% Complete`;
+                }
+            }
+        });
+    </script>
 {% endblock %}

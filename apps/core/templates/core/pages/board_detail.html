@@ -67,11 +67,11 @@
                 <i class="fas fa-user me-1"></i>
                 {{ membership.user.username }}
                                     {% if membership.role %}
-                                        <span class="text">• {{ membership.get_role_display }}</span>
+                                        <span class="text-light">• {{ membership.get_role_display }}</span>
                                     {% endif %}
               </span>
                             {% empty %}
-                                <span class="text" style="color: {{ board.text_color }};">No members yet</span>
+                                <span class="text-light" style="color: {{ board.text_color }};">No members yet</span>
                             {% endfor %}
                         </div>
                     </div>
@@ -95,7 +95,7 @@
                                 <div class="col-md-6">
                                     <div class="form-floating">
                                         {{ note_form.title }}
-                                        <label for="{{ note_form.title.id_for_label }}" class="text">Note
+                                        <label for="{{ note_form.title.id_for_label }}" class="text-light">Note
                                             Title</label>
                                     </div>
                                     {% if note_form.title.errors %}
@@ -105,7 +105,7 @@
                                 <div class="col-md-3">
                                     <div class="form-floating">
                                         {{ note_form.note_type }}
-                                        <label for="{{ note_form.note_type.id_for_label }}" class="text">Note
+                                        <label for="{{ note_form.note_type.id_for_label }}" class="text-light">Note
                                             Type</label>
                                     </div>
                                 </div>
@@ -113,13 +113,13 @@
                                     <div class="form-floating">
                                         {{ note_form.priority }}
                                         <label for="{{ note_form.priority.id_for_label }}"
-                                               class="text">Priority</label>
+                                               class="text-light">Priority</label>
                                     </div>
                                 </div>
                                 <div class="col-12">
                                     <div class="form-floating">
                                         {{ note_form.content }}
-                                        <label for="{{ note_form.content.id_for_label }}" class="text">Note
+                                        <label for="{{ note_form.content.id_for_label }}" class="text-light">Note
                                             Content</label>
                                     </div>
                                     {% if note_form.content.errors %}
@@ -232,10 +232,10 @@
                                                         </label>
                                                     </div>
                                                 {% empty %}
-                                                    <p class="text small mb-0">No checklist items</p>
+                                                    <p class="text-light small mb-0">No checklist items</p>
                                                 {% endfor %}
                                                 {% if note.checklist_items.count > 3 %}
-                                                    <p class="text small mb-0">
+                                                    <p class="text-light small mb-0">
                                                         <i class="fas fa-ellipsis-h me-1"></i>
                                                         {{ note.checklist_items.count|add:"-3" }} more
                                                         item{{ note.checklist_items.count|add:"-3"|pluralize }}
@@ -253,7 +253,7 @@
 
                                     <div class="card-footer bg-transparent border-top border-secondary pt-2 mt-auto">
                                         <div class="d-flex justify-content-between align-items-center">
-                                            <small class="text">
+                                            <small class="text-light">
                                                 <i class="fas fa-clock me-1"></i>
                                                 {{ note.updated_at|timesince }} ago
                                             </small>
@@ -276,10 +276,10 @@
                         <div class="col-12">
                             <div class="text-center py-5">
                                 <div class="empty-state">
-                                    <i class="fas fa-sticky-note text mb-3"
+                                    <i class="fas fa-sticky-note text-light mb-3"
                                        style="font-size: 4rem; opacity: 0.3;"></i>
-                                    <h4 class="text">No notes yet</h4>
-                                    <p class="text">Create your first note using the form above.</p>
+                                    <h4 class="text-light">No notes yet</h4>
+                                    <p class="text-light">Create your first note using the form above.</p>
                                 </div>
                             </div>
                         </div>

@@ -215,13 +215,36 @@ def note_create(request, board_id):
 @login_required
 def note_detail(request, board_id, note_id):
     board = get_object_or_404(Board, id=board_id)
-    note = get_object_or_404(Note, id=note_id, board=board)
+    note = get_object_or_404(
+        Note.objects.select_related('author', 'category', 'board')
+        .prefetch_related(
+            'checklist_items',
+            'links',
+            'notetag_set__tag'  # Виправлено зв'язок з тегами
+        ),
+        id=note_id,
+        board=board
+    )
 
     if not board.members.filter(id=request.user.id).exists():
-        messages.error(request, 'You do not have access to this board.')
-        return redirect('core:boards_list')
+        return render(request, '403.html', status=403)
 
-    return render(request, 'core/pages/note_detail.html', {'note': note, 'board': board})
+    # Для чеклістів: обчислюємо кількість виконаних пунктів
+    completed_count = 0
+    if note.note_type == 'checklist':
+        completed_count = note.checklist_items.filter(is_completed=True).count()
+
+    # Отримуємо список тегів через проміжну модель
+    tags = [notetag.tag for notetag in note.notetag_set.all()]
+
+    context = {
+        'note': note,
+        'board': board,
+        'completed_checklist_items_count': completed_count,
+        'tags': tags,  # Додаємо теги в контекст
+        'can_edit': request.user == note.author or request.user == board.owner,
+    }
+    return render(request, 'core/pages/note_detail.html', context)
 
 
 @login_required
@@ -246,21 +269,50 @@ def note_update(request, board_id, note_id):
 
 
 @login_required
-def note_delete(request, board_id, note_id):
-    board = get_object_or_404(Board, id=board_id)
-    note = get_object_or_404(Note, id=note_id, board=board)
+@require_POST
+def toggle_checklist_item(request, item_id):
+    item = get_object_or_404(ChecklistItem, id=item_id)
+    note = item.note
 
-    if not board.members.filter(id=request.user.id).exists():
-        messages.error(request, 'You do not have access to this board.')
-        return redirect('core:boards_list')
+    if not note.board.members.filter(id=request.user.id).exists():
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    item.is_completed = not item.is_completed
+    item.save()
+    return JsonResponse({
+        'success': True,
+        'is_completed': item.is_completed
+    })
+
+
+@login_required
+@require_POST
+def note_archive(request, note_id):
+    note = get_object_or_404(Note, id=note_id)
+
+    if request.user != note.author and request.user != note.board.owner:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    note.is_archived = not note.is_archived
+    note.save()
+    return JsonResponse({
+        'success': True,
+        'is_archived': note.is_archived
+    })
+
+
+@login_required
+def note_delete(request, board_id, note_id):
+    note = get_object_or_404(Note, id=note_id, board_id=board_id)
+
+    if request.user != note.author and request.user != note.board.owner:
+        return render(request, '403.html', status=403)
 
     if request.method == 'POST':
-        note_title = note.title
         note.delete()
-        messages.success(request, f'Note "{note_title}" deleted successfully!')
-        return redirect('core:board_detail', board.id)
+        return redirect('core:board_detail', board_id=board_id)
 
-    return render(request, 'core/pages/note_confirm_delete.html', {'note': note, 'board': board})
+    return render(request, 'core/confirm_delete.html', {'note': note})
 
 
 @login_required
@@ -269,7 +321,6 @@ def board_add_member(request, board_id):
     """Add a new member to the board"""
     board = get_object_or_404(Board, id=board_id)
 
-    # Check if user has permission to add members
     if not (request.user == board.owner or
             board.board_memberships.filter(user=request.user, role__in=['owner', 'admin']).exists()):
         return JsonResponse({'error': 'Permission denied'}, status=403)
@@ -282,7 +333,6 @@ def board_add_member(request, board_id):
         if not username:
             return JsonResponse({'error': 'Username is required'}, status=400)
 
-        # Find user by username or email
         try:
             if '@' in username:
                 user = User.objects.get(email=username)
@@ -291,11 +341,9 @@ def board_add_member(request, board_id):
         except User.DoesNotExist:
             return JsonResponse({'error': 'User not found'}, status=404)
 
-        # Check if user is already a member
         if BoardMember.objects.filter(board=board, user=user).exists():
             return JsonResponse({'error': 'User is already a member of this board'}, status=400)
 
-        # Add user to board
         BoardMember.objects.create(board=board, user=user, role=role)
 
         return JsonResponse({
@@ -316,16 +364,13 @@ def board_remove_member(request, board_id, membership_id):
     board = get_object_or_404(Board, id=board_id)
     membership = get_object_or_404(BoardMember, id=membership_id, board=board)
 
-    # Check if user has permission to remove members
     if not (request.user == board.owner or
             board.board_memberships.filter(user=request.user, role__in=['owner', 'admin']).exists()):
         return JsonResponse({'error': 'Permission denied'}, status=403)
 
-    # Prevent removing the owner
     if membership.role == 'owner':
         return JsonResponse({'error': 'Cannot remove board owner'}, status=400)
 
-    # Prevent removing yourself if you're the owner
     if request.user == board.owner and membership.user == request.user:
         return JsonResponse({'error': 'Board owner cannot remove themselves'}, status=400)
 
@@ -347,7 +392,6 @@ def board_settings(request, board_id):
     """Board settings page with advanced options"""
     board = get_object_or_404(Board, id=board_id)
 
-    # Check if user has permission to access settings
     if not (request.user == board.owner or
             board.board_memberships.filter(user=request.user, role__in=['owner', 'admin']).exists()):
         messages.error(request, 'You do not have permission to access board settings.')
