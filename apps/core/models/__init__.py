@@ -1,4 +1,4 @@
-from .user import User
+# from .user import User
 from .category import Category
 from .note import Note
 from .tag import Tag

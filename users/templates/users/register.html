@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Register{% endblock %}
+
+{% block content %}
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card bg-dark text-light border-secondary">
+                    <div class="card-header bg-secondary">
+                        <h2 class="text-center mb-0">Create Account</h2>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" class="needs-validation" novalidate>
+                            {% csrf_token %}
+
+                            {% for field in form %}
+                                <div class="mb-3">
+                                    {{ field.label_tag }}
+                                    {{ field }}
+                                    {% if field.help_text %}
+                                        <small class="form-text text-muted">{{ field.help_text }}</small>
+                                    {% endif %}
+                                    {% for error in field.errors %}
+                                        <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
+
+                            <button type="submit" class="btn btn-primary w-100 py-2 mt-3">
+                                <i class="fas fa-user-plus me-2"></i>Register
+                            </button>
+                        </form>
+                    </div>
+                    <div class="card-footer bg-dark border-secondary text-center">
+                        <p class="mb-0">Already have an account?
+                            <a href="{% url 'users:login' %}" class="text-decoration-none">Sign In</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
