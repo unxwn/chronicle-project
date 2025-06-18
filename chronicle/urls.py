@@ -22,9 +22,8 @@ from apps.core.views import WelcomeView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', WelcomeView.as_view(), name='welcome'),
-    path('users/', include('users.urls')),
-    path('core/', include('apps.core.urls')),
+    path('', include('apps.core.urls', namespace='core')),  # Простір імен для core
+    path('users/', include('users.urls', namespace='users')),  # Простір імен для users
 ]
 
 if settings.DEBUG:

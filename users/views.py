@@ -27,7 +27,7 @@ def register_view(request):
 @require_http_methods(["GET", "POST"])
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect('core:home')
+        return redirect('core:welcome')
 
     if request.method == 'POST':
         form = UserLoginForm(data=request.POST)
@@ -39,7 +39,7 @@ def login_view(request):
             if user is not None:
                 login(request, user)
                 messages.success(request, f'Welcome back, {user.first_name}!')
-                return redirect('core:home')
+                return redirect('core:welcome')
             else:
                 messages.error(request, 'Invalid username or password.')
         else:
